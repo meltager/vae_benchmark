@@ -114,7 +114,7 @@ experiment = VAEXperiment(model,
 # Early stopping
 my_early_stop_callback = EarlyStopping(
    monitor='val_loss',
-   min_delta=0.1,
+   min_delta=0.0001,
    patience=3,
    verbose=True,
    mode='min'
