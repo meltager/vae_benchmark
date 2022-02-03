@@ -1,0 +1,29 @@
+model_params:
+  name: 'BetaVAE'
+  in_channels: 1
+  latent_dim: 100
+  loss_type: 'B'
+  gamma: 10.0
+  max_capacity: 25
+  Capacity_max_iter: 10000
+  init: normal
+
+exp_params:
+  dataset: TCGA
+  data_path: "./Data/rna"
+  batch_size: 64 # Better to have a square number
+  LR: 0.0001
+  weight_decay: 0.0
+  scheduler_gamma: 0.95
+  optimizer: Adam
+  train_size: 0.7
+  test_size: 0
+
+trainer_params:
+  #gpus: 1
+  max_epochs: 1000
+
+logging_params:
+  save_dir: "logs/"
+  name: "BetaVAE"
+  manual_seed: 1265

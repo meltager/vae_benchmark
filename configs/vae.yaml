@@ -1,0 +1,25 @@
+model_params:
+  name: 'VanillaVAE'
+  in_channels: 1
+  latent_dim: 10
+  init: default
+
+exp_params:
+  dataset: TCGA
+  data_path: "./Data/rna"
+  batch_size: 64 # Better to have a square number
+  LR: 0.0001
+  weight_decay: 0.0
+  scheduler_gamma: 0.95
+  optimizer: Adam
+  train_size : 0.8
+  test_size: 0
+
+trainer_params:
+  #gpus: [2]
+  max_epochs: 1000
+
+logging_params:
+  save_dir: "logs/"
+  name: "VanillaVAE"
+  manual_seed: 1265

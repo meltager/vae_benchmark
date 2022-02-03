@@ -1,0 +1,25 @@
+model_params:
+  name: 'IWAE'
+  in_channels: 1
+  latent_dim: 100
+  init: uniform
+
+exp_params:
+  dataset: TCGA
+  data_path: "./Data/rna"
+  batch_size: 64 # Better to have a square number
+  LR: 0.0001
+  weight_decay: 0.0
+  scheduler_gamma: 0.95
+  optimizer: Adam
+  train_size: 0.7
+  test_size: 0
+
+trainer_params:
+  #gpus: [2]
+  max_epochs: 1000
+
+logging_params:
+  save_dir: "logs/"
+  name: "IWAE"
+  manual_seed: 1265

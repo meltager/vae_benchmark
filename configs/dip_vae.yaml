@@ -1,0 +1,29 @@
+model_params:
+  name: 'DIPVAE'
+  in_channels: 1
+  latent_dim: 100
+  lambda_diag: 0.05
+  lambda_offdiag: 0.1
+  init: uniform
+
+
+exp_params:
+  dataset: TCGA
+  data_path: "./Data/rna"
+  batch_size: 64 # Better to have a square number
+  LR: 0.0001
+  weight_decay: 0.0
+  scheduler_gamma: 0.97
+  optimizer: Adam
+  train_size: 0.7
+  test_size: 0
+
+
+trainer_params:
+  #gpus: 1
+  max_epochs: 1000
+
+logging_params:
+  save_dir: "logs/"
+  name: "DIPVAE"
+  manual_seed: 1265
