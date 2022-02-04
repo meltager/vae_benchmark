@@ -252,5 +252,6 @@ class VAEXperiment(pl.LightningModule):
         print("Silhouette_score = "+str(s_score))
         cluster_score.append({'Silhouette':s_score})
 
+
         #Save the scores
         np.savetxt(save_dir+"/cluster_score.csv",cluster_score,delimiter=",",fmt = "%s")
