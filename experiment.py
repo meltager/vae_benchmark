@@ -211,8 +211,8 @@ class VAEXperiment(pl.LightningModule):
 
         #Create a neighbourhood graph
         neighbours = NearestNeighbors(n_neighbors = n_neighbours, metric='minkowski',p=2)
-        neighbours.fit(final_mu.detach().numpy())
-        neighbours_list = neighbours.kneighbors(final_mu.detach().numpy(),return_distance = False)
+        neighbours.fit(np.nan_to_num(final_mu.detach().numpy()))
+        neighbours_list = neighbours.kneighbors(np.nan_to_num(final_mu.detach().numpy()),return_distance = False)
 
         #Create Adj Mtx.    ==> There must be a smarter way to do it
         adj_mtx = np.zeros((final_mu.shape[0],final_mu.shape[0]))
@@ -248,7 +248,7 @@ class VAEXperiment(pl.LightningModule):
         print("ARI = "+ str(ari))
         cluster_score.append({'ARI':ari})
 
-        s_score = metrics.silhouette_score(final_mu.detach().numpy(), np.array(partition._membership), metric='euclidean')
+        s_score = metrics.silhouette_score(np.nan_to_num(final_mu.detach().numpy()), np.array(partition._membership), metric='euclidean')
         print("Silhouette_score = "+str(s_score))
         cluster_score.append({'Silhouette':s_score})
 
