@@ -11,14 +11,14 @@ from pytorch_lightning.callbacks import EarlyStopping
 from torch import save
 
 valid_optimizers = ['Adam','SGD','RMSprop']
-valid_inits = ['uniform','normal','xavier_uniform','xavier_normal','ones','zeros']
+valid_inits = ['default', 'uniform','normal','xavier_uniform','xavier_normal','ones','zeros']
 
 parser = argparse.ArgumentParser(description='Generic runner for VAE models')
 parser.add_argument('--config',  '-c',
                     dest="filename",
                     metavar='FILE',
                     help =  'path to the config file',
-                    default='configs/dip_vae.yaml')
+                    default='configs/vae.yaml')
 parser.add_argument('--learning_rate','-L',
                     dest="learningRate",
                     metavar='Number',

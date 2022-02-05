@@ -45,7 +45,7 @@ class BetaVAE(BaseVAE):
                     torch.nn.init.ones_(m.weight)
                 elif self.init_method == 'zeros':
                     torch.nn.init.zeros_(m.weight)
-                elif self.init_method =='default':
+                elif self.init_method == 'default':
                     torch.nn.init.kaiming_uniform_(m.weight)
                 else:
                     print("Init method not supported, using default")

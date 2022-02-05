@@ -209,49 +209,55 @@ class VAEXperiment(pl.LightningModule):
         except:
             final_mu, = self.model.encode(data_to_embed)
 
-        #Create a neighbourhood graph
-        neighbours = NearestNeighbors(n_neighbors = n_neighbours, metric='minkowski',p=2)
-        neighbours.fit(np.nan_to_num(final_mu.detach().numpy()))
-        neighbours_list = neighbours.kneighbors(np.nan_to_num(final_mu.detach().numpy()),return_distance = False)
+        try:
+            #Create a neighbourhood graph
+            neighbours = NearestNeighbors(n_neighbors = n_neighbours, metric='minkowski',p=2)
+            neighbours.fit(final_mu.detach().numpy())
+            neighbours_list = neighbours.kneighbors(final_mu.detach().numpy(),return_distance = False)
 
-        #Create Adj Mtx.    ==> There must be a smarter way to do it
-        adj_mtx = np.zeros((final_mu.shape[0],final_mu.shape[0]))
-        tmp_idx = 0
-        for i in neighbours_list:
-            for j in i:
-                adj_mtx[tmp_idx,j] = 1
-            tmp_idx+=1
+            #Create Adj Mtx.    ==> There must be a smarter way to do it
+            adj_mtx = np.zeros((final_mu.shape[0],final_mu.shape[0]))
+            tmp_idx = 0
+            for i in neighbours_list:
+                for j in i:
+                    adj_mtx[tmp_idx,j] = 1
+                tmp_idx+=1
 
-        # Create an iGraph from the Adj Matrix
-        g = ig.Graph.Adjacency(adj_mtx, mode='undirected')
+            # Create an iGraph from the Adj Matrix
+            g = ig.Graph.Adjacency(adj_mtx, mode='undirected')
 
-        # Cluster using Lieden algorithm
-        partition = la.find_partition(g, la.ModularityVertexPartition, n_iterations=-1, seed=42)
+            # Cluster using Lieden algorithm
+            partition = la.find_partition(g, la.ModularityVertexPartition, n_iterations=-1, seed=42)
 
-        #draw umap
-        if draw_umap:
-            mapper = umap.UMAP().fit(np.nan_to_num(final_mu.detach().numpy()))
-            umap.plot.points(mapper, labels=np.array(partition._membership), color_key_cmap='Paired',
-                             show_legend=True)
+            #draw umap
+            if draw_umap:
+                mapper = umap.UMAP().fit(np.nan_to_num(final_mu.detach().numpy()))
+                umap.plot.points(mapper, labels=np.array(partition._membership), color_key_cmap='Paired',
+                                 show_legend=True)
 
-            plt.title(self.model._get_name() + "\n" +
-                      " Init:" + str(self.model.init_method) +
-                      " Opt:" + self.params['optimizer'] +
-                      " Latent: " + str(self.model.latent_dim) +
-                      " LR:" + str(self.params['LR']) +
-                      " # Clusters: " + str(partition.__len__()))
+                plt.title(self.model._get_name() + "\n" +
+                          " Init:" + str(self.model.init_method) +
+                          " Opt:" + self.params['optimizer'] +
+                        " Latent: " + str(self.model.latent_dim) +
+                        " LR:" + str(self.params['LR']) +
+                        " # Clusters: " + str(partition.__len__()))
 
-            plt.savefig(save_dir + "/umap_clustered.svg", bbox_inches='tight', dpi=300)
+                plt.savefig(save_dir + "/umap_clustered.svg", bbox_inches='tight', dpi=300)
 
-        # Calc. the Clustering scores
-        ari = metrics.adjusted_rand_score(self.dataset.meta_data.iloc[:,1],np.array(partition._membership))
-        print("ARI = "+ str(ari))
+                # Calc. the Clustering scores
+                ari = metrics.adjusted_rand_score(self.dataset.meta_data.iloc[:, 1], np.array(partition._membership))
+                print("ARI = " + str(ari))
+
+                s_score = metrics.silhouette_score(np.nan_to_num(final_mu.detach().numpy()),
+                                                   np.array(partition._membership), metric='euclidean')
+                print("Silhouette_score = " + str(s_score))
+
+        except:
+            ari = np.nan
+            s_score = np.nan
+
         cluster_score.append({'ARI':ari})
-
-        s_score = metrics.silhouette_score(np.nan_to_num(final_mu.detach().numpy()), np.array(partition._membership), metric='euclidean')
-        print("Silhouette_score = "+str(s_score))
         cluster_score.append({'Silhouette':s_score})
-
 
         #Save the scores
         np.savetxt(save_dir+"/cluster_score.csv",cluster_score,delimiter=",",fmt = "%s")

@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import zscore
 from sklearn.model_selection import train_test_split
+import pickle
 
 from torch.utils.data import DataLoader, Dataset
 
@@ -55,6 +56,9 @@ class TCGA (metaclass=SingletonMeta):
         # Check the existence of the folder and the file
         data_dir = pathlib.Path(xena_file_path)
         file_path = pathlib.Path(xena_file_path+xena_file_name)
+        pickle_file = pathlib.Path(xena_file_path+"processed_data.pickle")
+        meta_pickle = pathlib.Path(xena_file_path+"meta_data.pickle")
+
         NUM_VAR_GENES = 5000                                                # FIXME: Must be moved to the Config file
         self.train_size = train_size
         self.test_size = test_size
@@ -75,32 +79,45 @@ class TCGA (metaclass=SingletonMeta):
                         shutil.copyfileobj(f_in, f_out)
                         # Need to get also the annotation file
 
-        # Read Data file
-        self.rna_data = pd.read_table(xena_file_path+xena_file_name, index_col=0)
-        self.rna_data = self.rna_data.transpose()
-        #FIXME: Change the name of the metadata file to be variable and be able to get from the internet
-        self.meta_data = pd.read_table("./Data/Survival_SupplementalTable_S1_20171025_xena_sp",index_col=0)
-        print('Data read = '+ str(self.rna_data.shape))
+        #check if processed_data.pickle exist
+        if pickle_file.exists():
+            print("Reading from Pickle file")
+            self.rna_data_subset = pickle.load(open(pickle_file,'rb'))
+            self.meta_data = pickle.load(open(meta_pickle,'rb'))
 
-        common_idx = list(set(self.rna_data.index)& set(self.meta_data.index))
-        self.rna_data = self.rna_data.loc[common_idx]
-        self.meta_data = self.meta_data.loc[common_idx]
+        else:
+            # Read Data file
+            self.rna_data = pd.read_table(xena_file_path+xena_file_name, index_col=0)
+            self.rna_data = self.rna_data.transpose()
+            #FIXME: Change the name of the metadata file to be variable and be able to get from the internet
+            self.meta_data = pd.read_table("./Data/Survival_SupplementalTable_S1_20171025_xena_sp",index_col=0)
+            print('Data read = '+ str(self.rna_data.shape))
 
-        if debug:
-            var = np.apply_along_axis(cv, axis=-1, arr=self.rna_data)
-            plt.hist(var, density=False, bins=100)
+            common_idx = list(set(self.rna_data.index)& set(self.meta_data.index))
+            self.rna_data = self.rna_data.loc[common_idx]
+            self.meta_data = self.meta_data.loc[common_idx]
 
-        # Selected top Variable genes
-        var_genes = self.rna_data.mad(axis=0).sort_values(ascending=False)
-        top_var_genes = var_genes.iloc[0:NUM_VAR_GENES, ].index
-        self.rna_data_subset = self.rna_data.loc[:, top_var_genes]
+            if debug:
+                var = np.apply_along_axis(cv, axis=-1, arr=self.rna_data)
+                plt.hist(var, density=False, bins=100)
 
-        self.rna_data_subset= self.rna_data_subset.loc[common_idx]
-        print('Data: Top Var genes selected')
+            # Selected top Variable genes
+            var_genes = self.rna_data.mad(axis=0).sort_values(ascending=False)
+            top_var_genes = var_genes.iloc[0:NUM_VAR_GENES, ].index
+            self.rna_data_subset = self.rna_data.loc[:, top_var_genes]
 
-        # Normalize data
-        self.rna_data_subset = self.rna_data_subset.apply(zscore, nan_policy='omit')
-        print('Data Final size = ' + str(self.rna_data_subset.shape))
+            self.rna_data_subset= self.rna_data_subset.loc[common_idx]
+            print('Data: Top Var genes selected')
+
+            # Normalize data
+            self.rna_data_subset = self.rna_data_subset.apply(zscore, nan_policy='omit')
+            print('Data Final size = ' + str(self.rna_data_subset.shape))
+
+            # Save the data in pickle file to faster load later
+            with open(xena_file_path+'processed_data.pickle','wb') as f:
+                pickle.dump(self.rna_data_subset,f)
+            with open(xena_file_path+'meta_data.pickle','wb') as f:
+                pickle.dump(self.meta_data,f)
 
         self.split_data()
 
