@@ -245,12 +245,12 @@ class VAEXperiment(pl.LightningModule):
                 plt.savefig(save_dir + "/umap_clustered.svg", bbox_inches='tight', dpi=300)
 
                 # Calc. the Clustering scores
-                ari = metrics.adjusted_rand_score(self.dataset.meta_data.iloc[:, 1], np.array(partition._membership))
-                print("ARI = " + str(ari))
+            ari = metrics.adjusted_rand_score(self.dataset.meta_data.iloc[:, 1], np.array(partition._membership))
+            print("ARI = " + str(ari))
 
-                s_score = metrics.silhouette_score(np.nan_to_num(final_mu.detach().numpy()),
+            s_score = metrics.silhouette_score(np.nan_to_num(final_mu.detach().numpy()),
                                                    np.array(partition._membership), metric='euclidean')
-                print("Silhouette_score = " + str(s_score))
+            print("Silhouette_score = " + str(s_score))
 
         except:
             ari = np.nan
