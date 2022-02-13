@@ -18,7 +18,7 @@ parser.add_argument('--config',  '-c',
                     dest="filename",
                     metavar='FILE',
                     help =  'path to the config file',
-                    default='configs/vae.yaml')
+                    default='configs/dip_vae.yaml')
 parser.add_argument('--learning_rate','-L',
                     dest="learningRate",
                     metavar='Number',
@@ -147,3 +147,5 @@ np.savetxt(config['logging_params']['save_dir']+config['logging_params']['name']
 
 #Calc. Clustering
 experiment.get_data_cluster(config['logging_params']['save_dir']+config['logging_params']['name'],draw_umap=True)
+
+experiment.test_disentanglement(config['logging_params']['save_dir']+config['logging_params']['name'])

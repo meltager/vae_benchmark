@@ -2,6 +2,7 @@ import math
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 from torch import optim
 from models import BaseVAE
@@ -13,9 +14,11 @@ from TCGA import *
 import umap
 import umap.plot
 from sklearn.neighbors import NearestNeighbors
+from sklearn.linear_model import LinearRegression
 from sklearn import metrics
 import igraph as ig
 import leidenalg as la
+from itertools import combinations
 
 
 class VAEXperiment(pl.LightningModule):
@@ -200,6 +203,8 @@ class VAEXperiment(pl.LightningModule):
         plt.savefig(save_dir + "/umap.svg", bbox_inches='tight', dpi=300)
         return
 
+
+
     def get_data_cluster(self,save_dir,n_neighbours = 15,draw_umap =False):
         cluster_score = []
         #Get the data from the latent space
@@ -261,3 +266,33 @@ class VAEXperiment(pl.LightningModule):
 
         #Save the scores
         np.savetxt(save_dir+"/cluster_score.csv",cluster_score,delimiter=",",fmt = "%s")
+
+    def test_disentanglement(self, save_dir, max_num_dim=3):
+        collected_score = []
+        #encode the data
+        data_to_embed = torch.tensor(np.nan_to_num(self.dataset.rna_data_subset.to_numpy())).float()
+        try:
+            final_mu, _ = self.model.encode(data_to_embed)
+        except:
+            final_mu, = self.model.encode(data_to_embed)
+
+        dim_tuple = tuple(range(0, final_mu.shape[1]))
+        gender_target = pd.get_dummies(self.dataset.meta_data.gender)
+        race_target = pd.get_dummies(self.dataset.meta_data.race).iloc[:,:-2]        # Remove last 2 because they are the unkown and unspecified variables
+        age_target = -(self.dataset.meta_data.birth_days_to).fillna(0)
+
+        for i in range(1,max_num_dim+1):
+            # Create all the possible combinations for the latent dimensions
+            combinations_list = tuple(combinations(dim_tuple,i))
+            for y in combinations_list:
+                train = final_mu[:,y].detach().numpy().reshape(-1,i)
+                lnr_reg = LinearRegression().fit(train,gender_target)
+                gender_score = lnr_reg.score(train,gender_target)
+                lnr_reg = LinearRegression().fit(train, race_target)
+                race_score =lnr_reg.score(train,race_target)
+                lnr_reg = LinearRegression().fit(train, age_target)
+                age_score = lnr_reg.score(train,age_target)
+                collected_score.append({'combination': y, 'gender_score': gender_score,'race_score':race_score , 'age_score': age_score})
+            #final_mu[:,combinations_list[0]]
+
+        np.savetxt(save_dir + "/disentanglement.csv", collected_score, delimiter=",", fmt="%s")
