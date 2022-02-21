@@ -18,7 +18,7 @@ parser.add_argument('--config',  '-c',
                     dest="filename",
                     metavar='FILE',
                     help =  'path to the config file',
-                    default='configs/dip_vae.yaml')
+                    default='configs/vae.yaml')
 parser.add_argument('--learning_rate','-L',
                     dest="learningRate",
                     metavar='Number',
