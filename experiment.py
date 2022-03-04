@@ -15,11 +15,13 @@ import umap
 import umap.plot
 from sklearn.neighbors import NearestNeighbors
 from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LogisticRegression
+from scipy import stats
 from sklearn import metrics
 import igraph as ig
 import leidenalg as la
 from itertools import combinations
-
+import statsmodels.api as sm
 
 class VAEXperiment(pl.LightningModule):
 
@@ -267,7 +269,7 @@ class VAEXperiment(pl.LightningModule):
         #Save the scores
         np.savetxt(save_dir+"/cluster_score.csv",cluster_score,delimiter=",",fmt = "%s")
 
-    def test_disentanglement(self, save_dir, max_num_dim=3):
+    def test_multidim_disentanglement(self, save_dir, max_num_dim=3):
         collected_score = []
         #encode the data
         data_to_embed = torch.tensor(np.nan_to_num(self.dataset.rna_data_subset.to_numpy())).float()
@@ -296,3 +298,119 @@ class VAEXperiment(pl.LightningModule):
             #final_mu[:,combinations_list[0]]
 
         np.savetxt(save_dir + "/disentanglement.csv", collected_score, delimiter=",", fmt="%s")
+
+
+    def test_singledim_disentanglement(self,save_dir):
+        collected_score=[]
+        col_names = ['Dim','gender_score_train','gender_train_beta','gender_train_pval',
+                                    'gender_score_test','gender_test_beta','gender_test_pval',
+                                    'race_score_train','race_score_test','age_R_train',
+                                    'age_pVal_train','age_R_test','age_pVal_test']
+        #collected_results= pd.DataFrame(columns=col_names)
+        collected_results= pd.DataFrame()
+        train_data = pd.concat([self.dataset.train_set,self.dataset.validation_set])
+        train_data_to_embed = torch.tensor(np.nan_to_num(train_data.to_numpy())).float()
+        test_data_to_embed =  torch.tensor(np.nan_to_num(self.dataset.test_set)).float()
+
+        try:
+            train_mu, _ = self.model.encode(train_data_to_embed)
+            test_mu, _ = self.model.encode(test_data_to_embed)
+        except:
+            train_mu, = self.model.encode(train_data_to_embed)
+            test_mu,  = self.model.encode(test_data_to_embed)
+
+        age_target_train = -(self.dataset.meta_data.birth_days_to.loc[train_data.index])
+        age_target_test = -(self.dataset.meta_data.birth_days_to.loc[self.dataset.test_set.index])
+
+        for i in range(train_mu.shape[1]):
+
+            #Gender Testing
+            train =train_mu[:, i].detach().numpy().reshape(-1, 1)
+            target =self.dataset.meta_data.gender.loc[train_data.index]
+            reg = LogisticRegression().fit(train, target)
+            gender_score = reg.score(train,target)
+            #Use Statmodels
+            train = sm.add_constant(train)
+            model = sm.Logit(pd.get_dummies(target).iloc[:,0],train,missing='drop')
+            gender_train_result = model.fit_regularized()
+
+            test =test_mu[:, i].detach().numpy().reshape(-1, 1)
+            target = self.dataset.meta_data.gender.loc[self.dataset.test_set.index]
+            reg = LogisticRegression().fit(test, target)
+            gender_score_test = reg.score(test, target)
+            # Use Statmodels
+            test = sm.add_constant(test)
+            model = sm.Logit(pd.get_dummies(target).iloc[:,0], test, missing='drop')
+            gender_test_result = model.fit_regularized()
+
+            # RACE testing
+            train = train_mu[:, i].detach().numpy().reshape(-1, 1)
+            target = self.dataset.meta_data.race.loc[train_data.index]
+            target.loc[target == '[Unknown]'] = np.NaN
+            target.loc[target == '[Not Evaluated]'] = np.NaN
+            tmp_target= target.loc[target.notna()]
+            train = train[target.index.get_indexer(tmp_target.index)]
+            reg = LogisticRegression(class_weight='balanced').fit(train, tmp_target)
+            race_score = reg.score(train, tmp_target)
+
+            test = test_mu[:, i].detach().numpy().reshape(-1, 1)
+            target = self.dataset.meta_data.race.loc[self.dataset.test_set.index]
+            target.loc[target == '[Unknown]'] = np.NaN
+            target.loc[target == '[Not Evaluated]'] = np.NaN
+            tmp_target= target.loc[target.notna()]
+            test = test[target.index.get_indexer(tmp_target.index)]
+            reg = LogisticRegression(class_weight='balanced').fit(test, tmp_target)
+            race_score_test = reg.score(test, tmp_target)
+
+            #Age Testing
+            r_train, p_train = stats.spearmanr(train_mu[:, i].detach().numpy(), age_target_train, nan_policy='omit')
+            r_test, p_test = stats.spearmanr(test_mu[:, i].detach().numpy(), age_target_test, nan_policy='omit')
+
+            # Calculate Regression to top 10 Cancer types
+            #1-Get the most frequent 10 cancer types
+            cancer_freq = self.dataset.meta_data.cancer_type_abbreviation.value_counts()
+            cancer = pd.get_dummies(self.dataset.meta_data.cancer_type_abbreviation)
+            train =train_mu[:, i].detach().numpy().reshape(-1, 1)
+            train_c = sm.add_constant(train)
+            test = test_mu[:, i].detach().numpy().reshape(-1, 1)
+            test_c = sm.add_constant(test)
+            tmp_result = pd.DataFrame()
+            for y in range(0,10):
+                tmp_cancer_target = cancer.loc[train_data.index, cancer.columns == cancer_freq.index[y]]
+                model = sm.Logit(tmp_cancer_target,train_c,missing='drop')
+                result = model.fit_regularized()
+                tmp_result.insert(tmp_result.shape[0],cancer_freq.index[y]+'_train_coff',[result.params[1]])
+                tmp_result.insert(tmp_result.shape[0],cancer_freq.index[y]+'_train_pval',[result.pvalues[1]])
+
+                #Use skitlearn as verification
+                reg = LogisticRegression().fit(train, tmp_cancer_target)
+                test_score = reg.score(train, tmp_cancer_target)
+                tmp_result.insert(tmp_result.shape[0],cancer_freq.index[y]+'_train_score',[test_score])
+
+                #log the data
+                tmp_result
+                tmp_cancer_target = cancer.loc[self.dataset.test_set.index, cancer.columns == cancer_freq.index[y]]
+                model = sm.Logit(tmp_cancer_target, test_c, missing='drop')
+                result = model.fit_regularized()
+                tmp_result.insert(tmp_result.shape[0],cancer_freq.index[y]+'_test_coff',[result.params[1]])
+                tmp_result.insert(tmp_result.shape[0],cancer_freq.index[y]+'_test_pval',[result.pvalues[1]])
+
+                # Use skitlearn as verification
+                reg = LogisticRegression().fit(test, tmp_cancer_target)
+                test_score = reg.score(test, tmp_cancer_target)
+                tmp_result.insert(tmp_result.shape[0],cancer_freq.index[y]+'_test_score',[test_score])
+
+
+            tmp = pd.DataFrame(
+                [[i, gender_score,gender_train_result.params[1],gender_train_result.pvalues[1],
+                  gender_score_test,gender_test_result.params[1],gender_test_result.pvalues[1],
+                  race_score, race_score_test, r_train, p_train, r_test, p_test]],
+                columns=col_names)
+
+            tmp = pd.concat([tmp, tmp_result], axis=1).reindex(tmp.index)
+
+            collected_results = collected_results.append(tmp,ignore_index=True)
+
+        #np.savetxt(save_dir + "/disentanglement_single_test.csv", collected_score, delimiter=",", fmt="%s")
+        collected_results.to_csv(save_dir + "/disentanglement_single_test.csv")
+

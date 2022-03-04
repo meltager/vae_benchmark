@@ -1,8 +1,8 @@
 model_params:
   name: 'VanillaVAE'
   in_channels: 1
-  latent_dim: 30
-  init: default
+  latent_dim: 50
+  init: xavier_normal
 
 exp_params:
   dataset: TCGA
@@ -11,9 +11,9 @@ exp_params:
   LR: 0.001
   weight_decay: 0.0
   scheduler_gamma: 0.95
-  optimizer: Adam
-  train_size : 0.8
-  test_size: 0
+  optimizer: RMSprop
+  train_size : 0.7
+  test_size: 0.2
 
 trainer_params:
   #gpus: [2]

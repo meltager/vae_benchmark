@@ -148,4 +148,5 @@ np.savetxt(config['logging_params']['save_dir']+config['logging_params']['name']
 #Calc. Clustering
 experiment.get_data_cluster(config['logging_params']['save_dir']+config['logging_params']['name'],draw_umap=True)
 
-experiment.test_disentanglement(config['logging_params']['save_dir']+config['logging_params']['name'])
+#experiment.test_multidim_disentanglement(config['logging_params']['save_dir'] + config['logging_params']['name'])
+experiment.test_singledim_disentanglement(config['logging_params']['save_dir'] + config['logging_params']['name'])
