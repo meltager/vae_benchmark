@@ -305,7 +305,9 @@ class VAEXperiment(pl.LightningModule):
         col_names = ['Dim','gender_score_train','gender_train_beta','gender_train_pval',
                                     'gender_score_test','gender_test_beta','gender_test_pval',
                                     'race_score_train','race_score_test','age_R_train',
-                                    'age_pVal_train','age_R_test','age_pVal_test']
+                                    'age_pVal_train','age_R_test','age_pVal_test',
+                                    'immune_R_train', 'immune_pVal_train', 'immune_R_test', 'immune_pVal_test',
+                                    'metastat_R', 'Metastat_pVal']
         #collected_results= pd.DataFrame(columns=col_names)
         collected_results= pd.DataFrame()
         train_data = pd.concat([self.dataset.train_set,self.dataset.validation_set])
@@ -314,13 +316,26 @@ class VAEXperiment(pl.LightningModule):
 
         try:
             train_mu, _ = self.model.encode(train_data_to_embed)
-            test_mu, _ = self.model.encode(test_data_to_embed)
+            test_mu, _  = self.model.encode(test_data_to_embed)
+            rna_total, _= self.model.encode(torch.tensor(np.nan_to_num(self.dataset.rna_data_subset)).float())
         except:
-            train_mu, = self.model.encode(train_data_to_embed)
-            test_mu,  = self.model.encode(test_data_to_embed)
+            train_mu,  = self.model.encode(train_data_to_embed)
+            test_mu,   = self.model.encode(test_data_to_embed)
+            rna_total, = self.model.encode(self.dataset.rna_data_subset)
 
         age_target_train = -(self.dataset.meta_data.birth_days_to.loc[train_data.index])
         age_target_test = -(self.dataset.meta_data.birth_days_to.loc[self.dataset.test_set.index])
+
+        #Get the Raw Data to calc. mutation signature
+        if not hasattr(self.dataset,'rna_data'):
+            # Read the raw file data
+            self.dataset.rna_data = pd.read_table('./Data/rna_data.xena', index_col=0)
+            self.dataset.rna_data = self.dataset.rna_data.transpose()
+            self.dataset.rna_data = self.dataset.rna_data.loc[self.dataset.meta_data.index]
+
+        # 2. Read the gene names from file
+        gene_list = pd.read_csv('./Data/prob_list.csv')
+        mutation_signature = self.dataset.rna_data.loc[:,self.dataset.rna_data.columns.isin(gene_list['Gene Name'])].sum(axis=1)
 
         for i in range(train_mu.shape[1]):
 
@@ -366,6 +381,13 @@ class VAEXperiment(pl.LightningModule):
             r_train, p_train = stats.spearmanr(train_mu[:, i].detach().numpy(), age_target_train, nan_policy='omit')
             r_test, p_test = stats.spearmanr(test_mu[:, i].detach().numpy(), age_target_test, nan_policy='omit')
 
+            # immune gene testing
+            immune_r_train, immune_p_train = stats.spearmanr(train_mu[:,i].detach().numpy(),mutation_signature.loc[train_data.index],nan_policy = 'omit')
+            immune_r_test, immune_p_test = stats.spearmanr(test_mu[:,i].detach().numpy(),mutation_signature.loc[self.dataset.test_set.index],nan_policy = 'omit')
+
+            # Metastatis test
+            metastat_r, metastat_p = stats.spearmanr(rna_total[:,i].detach().numpy(),self.dataset.meta_data.new_tumor_event_dx_days_to,nan_policy='omit')
+
             # Calculate Regression to top 10 Cancer types
             #1-Get the most frequent 10 cancer types
             cancer_freq = self.dataset.meta_data.cancer_type_abbreviation.value_counts()
@@ -404,7 +426,9 @@ class VAEXperiment(pl.LightningModule):
             tmp = pd.DataFrame(
                 [[i, gender_score,gender_train_result.params[1],gender_train_result.pvalues[1],
                   gender_score_test,gender_test_result.params[1],gender_test_result.pvalues[1],
-                  race_score, race_score_test, r_train, p_train, r_test, p_test]],
+                  race_score, race_score_test, r_train, p_train, r_test, p_test,
+                  immune_r_train, immune_p_train,immune_r_test, immune_p_test,
+                  metastat_r,metastat_p]],
                 columns=col_names)
 
             tmp = pd.concat([tmp, tmp_result], axis=1).reindex(tmp.index)
@@ -414,3 +438,24 @@ class VAEXperiment(pl.LightningModule):
         #np.savetxt(save_dir + "/disentanglement_single_test.csv", collected_score, delimiter=",", fmt="%s")
         collected_results.to_csv(save_dir + "/disentanglement_single_test.csv")
 
+
+#self.dataset.rna_data[self.dataset.rna_data.index.isin(gene_list['Gene Name'])]
+
+#tmp_x.loc[tmp_x['Sample Names'].str.contains(self.dataset.rna_data_subset.index[0],case=False)]
+'''
+tmp_sing = pd.DataFrame()
+selected_sing =  pd.DataFrame()
+for i in range(self.dataset.meta_data.shape[0]):
+    if not tmp_x.loc[tmp_x['Sample Names'].str.contains(self.dataset.rna_data_subset.index[i],case=False)].shape[0] ==0:
+        tmp_sing = tmp_x.loc[tmp_x['Sample Names'].str.contains(self.dataset.rna_data_subset.index[i],case=False)].copy()
+        tmp_sing['Sample Names'] = self.dataset.rna_data_subset.index[i]
+        selected_sing = pd.concat([selected_sing,tmp_sing])
+    
+selected_sing = selected_sing.set_index('Sample Names')
+    
+tmp_sbs = selected_sing.iloc[:,2:].astype(bool).sum()
+tmp_sbs.sort_values(ascending = False).plot(kind ='bar')
+    
+    
+    
+'''
