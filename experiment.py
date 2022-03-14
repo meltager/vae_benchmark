@@ -442,6 +442,47 @@ class VAEXperiment(pl.LightningModule):
 #self.dataset.rna_data[self.dataset.rna_data.index.isin(gene_list['Gene Name'])]
 
 #tmp_x.loc[tmp_x['Sample Names'].str.contains(self.dataset.rna_data_subset.index[0],case=False)]
+
+    def test_mutation_sig_disentanglment (self,save_dir,file_dir = './Data/signatures_data.csv'):
+        # 1. Read the Mutation signature file
+        tmp_mutation_sig = pd.read_csv(file_dir)
+        tmp_sig = pd.DataFrame()
+        selected_sig = pd.DataFrame()
+        for i in range(self.dataset.meta_data.shape[0]):
+            if not tmp_mutation_sig.loc[tmp_mutation_sig['Sample Names'].str.contains(self.dataset.rna_data_subset.index[i], case=False)].shape[
+                       0] == 0:
+                tmp_sig = tmp_mutation_sig.loc[tmp_mutation_sig['Sample Names'].str.contains(self.dataset.rna_data_subset.index[i], case=False)].copy()
+                tmp_sig['Sample Names'] = self.dataset.rna_data_subset.index[i]
+                selected_sig = pd.concat([selected_sig, tmp_sig])
+
+        selected_sig = selected_sig.set_index('Sample Names')
+        tmp_sbs = selected_sig.iloc[:,:].astype(bool).sum()
+        #tmp_sbs.sort_values(ascending=False).plot(kind='bar')
+        tmp_patient = selected_sig.iloc[:,:].sum(axis=1)
+        #Normalize patient per signature
+        selected_sig['sum'] = selected_sig.iloc[:, 2:].sum(axis=1)
+        normalized_sig = selected_sig.iloc[:, 2:-2].div(selected_sig["sum"], axis=0)
+        selected_norm_sig = normalized_sig.loc[tmp_patient>300,tmp_sbs>500]
+
+        # Encode the same patients data
+        selected_patients = self.dataset.rna_data_subset.loc[selected_norm_sig.index]
+        selected_patients = torch.tensor(np.nan_to_num(selected_patients)).float()
+        try:
+            patients_mu, _ = self.model.encode(selected_patients)
+        except:
+            patients_mu, = self.model.encode(selected_patients)
+
+        results = pd.DataFrame(index=range(patients_mu.shape[1]), columns=range(selected_norm_sig.shape[1]))
+
+        for i in range(patients_mu.shape[1]):
+            for y in range(selected_norm_sig.shape[1]):
+                print(i,y )
+                r, p_val = stats.spearmanr(patients_mu[:, i].detach().numpy(),selected_norm_sig.iloc[:,y],nan_policy='omit')
+                results.iloc[i,2*y] = r
+                results.iloc[i,(2*y)+1]=p_val
+
+        results.to_cs(save_dir + "/disentanglement_signature_file.csv")
+
 '''
 tmp_sing = pd.DataFrame()
 selected_sing =  pd.DataFrame()
@@ -453,9 +494,12 @@ for i in range(self.dataset.meta_data.shape[0]):
     
 selected_sing = selected_sing.set_index('Sample Names')
     
-tmp_sbs = selected_sing.iloc[:,2:].astype(bool).sum()
+#tmp_sbs = selected_sing.iloc[:,2:].astype(bool).sum()
+tmp_sbs = selected_sing.iloc[:,:].astype(bool).sum()
 tmp_sbs.sort_values(ascending = False).plot(kind ='bar')
-    
+tmp_patient = selected_sing.iloc[:,2:].sum(axis=1)
+
+selected_sing.loc[tmp_patient>300, tmp_sbs>1000]
     
     
 '''
