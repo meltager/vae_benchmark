@@ -472,11 +472,16 @@ class VAEXperiment(pl.LightningModule):
         except:
             patients_mu, = self.model.encode(selected_patients)
 
-        results = pd.DataFrame(index=range(patients_mu.shape[1]), columns=range(selected_norm_sig.shape[1]))
+        col_names = []
+        for i in selected_norm_sig.columns:
+            col_names.append(i+"_r")
+            col_names.append(i+"_Pval")
+
+        results = pd.DataFrame(index=range(patients_mu.shape[1]), columns = col_names)
 
         for i in range(patients_mu.shape[1]):
             for y in range(selected_norm_sig.shape[1]):
-                print(i,y )
+                print(i,y)
                 r, p_val = stats.spearmanr(patients_mu[:, i].detach().numpy(),selected_norm_sig.iloc[:,y],nan_policy='omit')
                 results.iloc[i,2*y] = r
                 results.iloc[i,(2*y)+1]=p_val

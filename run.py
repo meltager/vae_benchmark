@@ -150,3 +150,4 @@ experiment.get_data_cluster(config['logging_params']['save_dir']+config['logging
 
 #experiment.test_multidim_disentanglement(config['logging_params']['save_dir'] + config['logging_params']['name'])
 experiment.test_singledim_disentanglement(config['logging_params']['save_dir'] + config['logging_params']['name'])
+experiment.test_mutation_sig_disentanglment(save_dir=config['logging_params']['save_dir'] + config['logging_params']['name'],file_dir='../code/Data/signatures_data.csv')
