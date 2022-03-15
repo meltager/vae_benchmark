@@ -486,7 +486,7 @@ class VAEXperiment(pl.LightningModule):
                 results.iloc[i,2*y] = r
                 results.iloc[i,(2*y)+1]=p_val
 
-        results.to_cs(save_dir + "/disentanglement_signature_file.csv")
+        results.to_csv(save_dir + "/disentanglement_signature_file.csv")
 
 '''
 tmp_sing = pd.DataFrame()
