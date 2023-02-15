@@ -36,7 +36,7 @@ it out. Now the design is as follow :
     c- Do the stratified splitting (split_data method)
     d- Get the Split data (get_data) 
 '''
-
+#FIXME:
 
 class SingletonMeta(type):
 

@@ -190,11 +190,15 @@ class VAEXperiment(pl.LightningModule):
     def get_data_umap(self,save_dir):
         data_to_embed =torch.tensor(np.nan_to_num(self.dataset.rna_data_subset.to_numpy())).float()
         try:
-            final_mu,_ = self.model.encode(data_to_embed)
+            final_mu,final_sigma = self.model.encode(data_to_embed)
+            z_data = self.model.reparameterize(mu=final_mu,logvar = final_sigma)
         except:
-            final_mu, = self.model.encode(data_to_embed)
+            final_mu = self.model.encode(data_to_embed)
+            z_data = self.model.reparameterize(final_mu)
 
-        mapper = umap.UMAP().fit(np.nan_to_num(final_mu.detach().numpy()))
+
+        #mapper = umap.UMAP().fit(np.nan_to_num(final_mu.detach().numpy()))
+        mapper = umap.UMAP().fit(np.nan_to_num(z_data.detach().numpy()))
         umap.plot.points(mapper, labels=self.dataset.meta_data.iloc[:, 1], color_key_cmap='Paired',show_legend=False)
         # umap.plot.plt.show()
         plt.title(self.model._get_name()+ "\n"+
@@ -212,15 +216,21 @@ class VAEXperiment(pl.LightningModule):
         #Get the data from the latent space
         data_to_embed = torch.tensor(np.nan_to_num(self.dataset.rna_data_subset.to_numpy())).float()
         try:
-            final_mu, _ = self.model.encode(data_to_embed)
+            final_mu,final_sigma = self.model.encode(data_to_embed)
+            z_data = self.model.reparameterize(mu=final_mu,logvar = final_sigma)
         except:
-            final_mu, = self.model.encode(data_to_embed)
+            final_mu = self.model.encode(data_to_embed)
+            z_data = self.model.reparameterize(final_mu)
+
 
         try:
             #Create a neighbourhood graph
             neighbours = NearestNeighbors(n_neighbors = n_neighbours, metric='minkowski',p=2)
-            neighbours.fit(final_mu.detach().numpy())
-            neighbours_list = neighbours.kneighbors(final_mu.detach().numpy(),return_distance = False)
+            #neighbours.fit(final_mu.detach().numpy())
+            #neighbours_list = neighbours.kneighbors(final_mu.detach().numpy(),return_distance = False)
+
+            neighbours.fit(z_data.detach().numpy())
+            neighbours_list = neighbours.kneighbors(z_data.detach().numpy(),return_distance = False)
 
             #Create Adj Mtx.    ==> There must be a smarter way to do it
             adj_mtx = np.zeros((final_mu.shape[0],final_mu.shape[0]))
@@ -238,7 +248,8 @@ class VAEXperiment(pl.LightningModule):
 
             #draw umap
             if draw_umap:
-                mapper = umap.UMAP().fit(np.nan_to_num(final_mu.detach().numpy()))
+                #mapper = umap.UMAP().fit(np.nan_to_num(final_mu.detach().numpy()))
+                mapper = umap.UMAP().fit(np.nan_to_num(z_data.detach().numpy()))
                 umap.plot.points(mapper, labels=np.array(partition._membership), color_key_cmap='Paired',
                                  show_legend=True)
 
@@ -255,8 +266,8 @@ class VAEXperiment(pl.LightningModule):
             ari = metrics.adjusted_rand_score(self.dataset.meta_data.iloc[:, 1], np.array(partition._membership))
             print("ARI = " + str(ari))
 
-            s_score = metrics.silhouette_score(np.nan_to_num(final_mu.detach().numpy()),
-                                                   np.array(partition._membership), metric='euclidean')
+            #s_score = metrics.silhouette_score(np.nan_to_num(final_mu.detach().numpy()),np.array(partition._membership), metric='euclidean')
+            s_score = metrics.silhouette_score(np.nan_to_num(z_data.detach().numpy()),np.array(partition._membership), metric='euclidean')
             print("Silhouette_score = " + str(s_score))
 
         except:
@@ -273,10 +284,13 @@ class VAEXperiment(pl.LightningModule):
         collected_score = []
         #encode the data
         data_to_embed = torch.tensor(np.nan_to_num(self.dataset.rna_data_subset.to_numpy())).float()
+
         try:
-            final_mu, _ = self.model.encode(data_to_embed)
+            final_mu,final_sigma = self.model.encode(data_to_embed)
+            z_data = self.model.reparameterize(mu=final_mu,logvar = final_sigma)
         except:
-            final_mu, = self.model.encode(data_to_embed)
+            final_mu = self.model.encode(data_to_embed)
+            z_data = self.model.reparameterize(final_mu)
 
         dim_tuple = tuple(range(0, final_mu.shape[1]))
         gender_target = pd.get_dummies(self.dataset.meta_data.gender)
@@ -287,7 +301,8 @@ class VAEXperiment(pl.LightningModule):
             # Create all the possible combinations for the latent dimensions
             combinations_list = tuple(combinations(dim_tuple,i))
             for y in combinations_list:
-                train = final_mu[:,y].detach().numpy().reshape(-1,i)
+                #train = final_mu[:,y].detach().numpy().reshape(-1,i)
+                train = z_data[:,y].detach().numpy().reshape(-1,i)
                 lnr_reg = LinearRegression().fit(train,gender_target)
                 gender_score = lnr_reg.score(train,gender_target)
                 lnr_reg = LinearRegression().fit(train, race_target)
@@ -410,7 +425,6 @@ class VAEXperiment(pl.LightningModule):
                 tmp_result.insert(tmp_result.shape[0],cancer_freq.index[y]+'_train_score',[test_score])
 
                 #log the data
-                tmp_result
                 tmp_cancer_target = cancer.loc[self.dataset.test_set.index, cancer.columns == cancer_freq.index[y]]
                 model = sm.Logit(tmp_cancer_target, test_c, missing='drop')
                 result = model.fit_regularized()
@@ -507,4 +521,18 @@ tmp_patient = selected_sing.iloc[:,2:].sum(axis=1)
 selected_sing.loc[tmp_patient>300, tmp_sbs>1000]
     
     
+'''
+
+
+'''
+tmp_result = pd.DataFrame()
+tmp = tmp_mutation_sig.drop(columns =['Accuracy'])
+binary_sig = (tmp.iloc[:,1:-1]>0).astype(int)
+binary_sig['Cancer Types'] = tmp['Cancer Types']
+for i in range(binary_sig.shape[1]-1):
+    tmp_result.insert(tmp_result.shape[1],binary_sig.columns[i],pd.crosstab(binary_sig['Cancer Types'], binary_sig.iloc[:,i])[1])
+
+tmp_result.loc[-1]= tmp_result.sum()
+tmp_result = tmp_result.rename(index={-1:'sum'})
+normalized = (tmp_result.div(tmp_result.iloc[-1,:], axis=1) *100).astype(int) 
 '''
