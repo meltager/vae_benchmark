@@ -34,7 +34,8 @@ And from this study we found the following findings:
    1. Mid-range values for latent space size performs well across all models.
    2. Mid-range values for learning rate perform better than smaller or larger rates. 
    3. Using Uniform distribution underperform all other weight initialization methods.
-   4. Adam optimizer is on average slightly better than other optimizers. 
+   4. Adam optimizer is on average slightly better than other optimizers.
+![Effect pf hyperparamters on different VAE model performance](/output_figures/Figure_4.png)
 4. Latent space disentanglement is not trivial to achieve in unsupervised manner. 
 
 ## Code overview 
