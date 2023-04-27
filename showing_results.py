@@ -8,11 +8,11 @@ import pathlib
 import plotly.express as px
 
 
-working_dir = './results_log'
+working_dir = './results_log/rebuttal'
 
-col_names = ["Model", "init", "optimizer", "ld", "lr", "epochs", "loss", "ari" ]
+col_names = ["Model", "init", "optimizer", "ld", "lr","activation", "epochs", "loss", "ari" ]
 
-collected_resutls_file= pathlib.Path(working_dir+"/../results_avg.csv")
+collected_resutls_file= pathlib.Path(working_dir+"/results_avg_rebuttal.csv")
 
 if collected_resutls_file.exists():
     result_avg = pd.read_csv(collected_resutls_file,delimiter=",",header=None)
@@ -29,24 +29,24 @@ else:
         if (not idx):
             results=result_tmp.copy()
         else:
-            results = pd.merge(results, result_tmp, how='outer', on=["Model", "init", "optimizer", "ld", "lr"], sort=True)
+            results = pd.merge(results, result_tmp, how='outer', on=["Model", "init", "optimizer", "ld", "lr", "activation"], sort=True)
 
         idx+=1
-    result_avg = results.iloc[:,0:8]
+    result_avg = results.iloc[:,0:9]
     result_avg.columns=col_names
-    result_avg.iloc[:,5] = results.iloc[:,5:results.shape[1]:3].mean(axis=1)
     result_avg.iloc[:,6] = results.iloc[:,6:results.shape[1]:3].mean(axis=1)
     result_avg.iloc[:,7] = results.iloc[:,7:results.shape[1]:3].mean(axis=1)
+    result_avg.iloc[:,8] = results.iloc[:,8:results.shape[1]:3].mean(axis=1)
 
-    np.savetxt(working_dir+"/../results_avg.csv",result_avg,delimiter=",",fmt = "%s")
+    np.savetxt(working_dir+"/results_avg_rebuttal.csv",result_avg,delimiter=",",fmt = "%s")
 
 sns.scatterplot(data = result_avg,x='ari',y='validation_loss',hue='Model')
 plt.cla()
-plt.savefig("./figures/all_models.png")
+plt.savefig("./Figures_folder/all_models.png")
 sns.set(style="ticks")
 sns.set_theme(style="whitegrid")
 sns.boxplot(data=result_avg, y='Model', x='ari', orient='h')
-plt.savefig("./figures/all_models_box.png")
+plt.savefig("./Figures_folder/all_models_box.png")
 plt.cla()
 
 

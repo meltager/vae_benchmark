@@ -3,6 +3,7 @@ model_params:
   in_channels: 1
   latent_dim: 100
   init: uniform
+  activation: tanh
 
 exp_params:
   dataset: TCGA

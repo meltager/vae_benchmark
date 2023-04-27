@@ -22,6 +22,16 @@ class DIPVAE(BaseVAE):
         self.input_size = 5000  # Fixme: This must not be a fixed value, and passed by someway from the config file
         self.init_method = kwargs['init']
 
+
+        # Setting the activation function
+        if kwargs['activation'] == 'relu':
+            self.activation = nn.ReLU()
+        elif kwargs['activation'] == 'tanh':
+            self.activation = nn.Tanh()
+        else:
+            self.activation = nn.ReLU()
+        print("Using activation function: "+ self.activation._get_name())
+
         def init_weights(m):
             if type(m) == nn.Linear:
                 print("Using initialization method: {}".format(self.init_method))
@@ -52,7 +62,9 @@ class DIPVAE(BaseVAE):
                 nn.Sequential(
                     nn.Linear(self.input_size,h_dim),
                     nn.BatchNorm1d(h_dim),
-                    nn.ReLU())
+                    self.activation
+                    #nn.ReLU()
+                )
             )
             in_channels = h_dim
 
@@ -71,7 +83,8 @@ class DIPVAE(BaseVAE):
         decode_layer = nn.Sequential(
             nn.Linear(latent_dim, hidden_dims[-1]),
             nn.BatchNorm1d(hidden_dims[-1]),
-            nn.ReLU()
+            self.activation
+            #nn.ReLU()
         )
 
         final_layer = nn.Sequential(
