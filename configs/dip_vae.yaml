@@ -5,6 +5,7 @@ model_params:
   lambda_diag: 0.05
   lambda_offdiag: 0.1
   init: default
+  activation: tanh
 
 
 exp_params:

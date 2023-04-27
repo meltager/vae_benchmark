@@ -7,6 +7,7 @@ model_params:
   max_capacity: 25
   Capacity_max_iter: 10000
   init: normal
+  activation: tanh
 
 exp_params:
   dataset: TCGA

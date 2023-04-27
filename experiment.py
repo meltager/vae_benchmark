@@ -11,6 +11,7 @@ from utils import data_loader
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from TCGA import *
+from GTEx import *
 import umap
 import umap.plot
 from sklearn.neighbors import NearestNeighbors
@@ -39,7 +40,13 @@ class VAEXperiment(pl.LightningModule):
         self.train_trace=[]
         self.save_hyperparameters()
 
-        self.dataset = TCGA(train_size=self.params['train_size'],test_size=self.params['test_size'])
+        if self.params['dataset'] == 'TCGA':
+            self.dataset = TCGA(train_size=self.params['train_size'], test_size=self.params['test_size'])
+        elif self.params['dataset'] == 'GTEx':
+            self.dataset = GTEx(train_size=self.params['train_size'], test_size=self.params['test_size'])
+        else:
+            raise ValueError('Undefined dataset type')
+
         try:
             self.hold_graph = self.params['retain_first_backpass']
         except:
@@ -84,9 +91,11 @@ class VAEXperiment(pl.LightningModule):
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
+        avg_reconstruction =torch.stack([x['Reconstruction_Loss'] for x in outputs]).mean()
         tensorboard_logs = {'avg_val_loss': avg_loss}
         self.log('val_loss',avg_loss)
-        self.train_trace.append({'epoch':self.current_epoch,'val_loss':avg_loss})
+        self.log('reconstruction:',avg_reconstruction)
+        self.train_trace.append({'epoch':self.current_epoch,'val_loss':avg_loss, 'reconstruction':avg_reconstruction})
         return {'val_loss': avg_loss, 'log': tensorboard_logs}
 
     def configure_optimizers(self):
@@ -145,6 +154,8 @@ class VAEXperiment(pl.LightningModule):
     def train_dataloader(self):
         if self.params['dataset'] == 'TCGA':
             dataset = TCGA_train()
+        elif self.params['dataset'] == 'GTEx':
+            dataset = GTEx_train()
         else:
             raise ValueError('Undefined dataset type')
 
@@ -158,17 +169,21 @@ class VAEXperiment(pl.LightningModule):
     def val_dataloader(self):
         if self.params['dataset'] == 'TCGA':
             dataset = TCGA_validate()
-            self.sample_dataloader = DataLoader(dataset,
+        elif self.params['dataset'] == 'GTEx':
+            dataset = GTEx_validate()
+        else:
+            raise ValueError('Undefined dataset type')
+
+        self.sample_dataloader = DataLoader(dataset,
                                                  batch_size= self.params['batch_size'],
                                                  shuffle = False,
                                                  drop_last=False)
-            try:
-                self.num_val_data = dataset.__len__()
-            except:
-                pass
+        try:
+            self.num_val_data = dataset.__len__()
+        except:
+            pass
 
-        else:
-            raise ValueError('Undefined dataset type')
+
 
         return self.sample_dataloader
 
@@ -176,6 +191,8 @@ class VAEXperiment(pl.LightningModule):
     def test_dataloader(self):
         if self.params['dataset']=='TCGA':
             dataset = TCGA_test()
+        elif self.params['dataset']=='GTEx':
+            dataset = GTEx_test()
         else:
             raise ValueError('Undefined dataset type')
         try:

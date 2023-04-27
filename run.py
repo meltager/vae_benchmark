@@ -12,6 +12,7 @@ from torch import save
 
 valid_optimizers = ['Adam','SGD','RMSprop']
 valid_inits = ['default', 'uniform','normal','xavier_uniform','xavier_normal','ones','zeros']
+valid_activation_layer = ['relu','tanh']
 
 parser = argparse.ArgumentParser(description='Generic runner for VAE models')
 parser.add_argument('--config',  '-c',
@@ -42,6 +43,19 @@ parser.add_argument('--initialization_weight','-I',
                     metavar='String',
                     help='the weight initialization used eg: uniform',
                     default=''
+                    )
+parser.add_argument('--activation_layer','-A',
+                    dest="activation",
+                    metavar='String',
+                    help='The activation layer used between layers eg: relu or tanh',
+                    default=''
+                    )
+
+parser.add_argument('--random_seed','-R',
+                    dest="r_seed",
+                    metavar='Number',
+                    help='This number is used as the random_seed',
+                    default='1265'
                     )
 args = parser.parse_args()
 with open(args.filename, 'r') as file:
@@ -85,11 +99,28 @@ except:
     print("Failed to parse the weight init. from the line args\nUsing the Config file weight init. = "
           +config['model_params']['init'])
 
-#setting the logs dir to be logs/init/optimizer/latent_dim/LR/Model/Version
+try:
+    if args.activation in valid_activation_layer:
+        config['model_params']['activation'] = args.activation
+        print("Using activation layer =" + config['model_params']['activation'])
+except:
+    print("Failed to parse the activation layer from the line args\nUsing the Config file activation layer = "
+          +config['model_params']['activation'])
+
+try:
+    if int(args.r_seed):
+        config['logging_params']['manual_seed'] = args.r_seed
+        print("Using Random seed =" + config['logging_params']['manual_seed'])
+except:
+    print("Failed to parse the random seed from the line args\nUsing the Config file weight init. = "
+          +config['logging_params']['manual_seed'])
+
+#setting the logs dir to be logs/init/optimizer/latent_dim/LR/activation/Model/Version
 config['logging_params']['save_dir']+=config['model_params']['init']+"/"
 config['logging_params']['save_dir']+=config['exp_params']['optimizer']+"/"
 config['logging_params']['save_dir']+=str(config['model_params']['latent_dim'])+"/"
 config['logging_params']['save_dir']+=str(config['exp_params']['LR'])+"/"
+config['logging_params']['save_dir']+=str(config['model_params']['activation'])+"/"
 
 
 #TestTubeLooger : Log to local file system in TensorBoard format but using a nicer folder structure
@@ -102,8 +133,10 @@ tt_logger = TensorBoardLogger(
 )
 
 # For reproducibility
-torch.manual_seed(config['logging_params']['manual_seed'])
-np.random.seed(config['logging_params']['manual_seed'])
+# For fixing the performance define the manual seed.
+print(f"======> Using Random seed = {config['logging_params']['manual_seed']}")
+torch.manual_seed(int(config['logging_params']['manual_seed']))
+np.random.seed(int(config['logging_params']['manual_seed']))
 cudnn.deterministic = True
 cudnn.benchmark = False
 
@@ -149,5 +182,7 @@ np.savetxt(config['logging_params']['save_dir']+config['logging_params']['name']
 experiment.get_data_cluster(config['logging_params']['save_dir']+config['logging_params']['name'],draw_umap=True)
 
 #experiment.test_multidim_disentanglement(config['logging_params']['save_dir'] + config['logging_params']['name'])
-experiment.test_singledim_disentanglement(config['logging_params']['save_dir'] + config['logging_params']['name'])
-experiment.test_mutation_sig_disentanglment(save_dir=config['logging_params']['save_dir'] + config['logging_params']['name'],file_dir='../code/Data/signatures_data.csv')
+
+#uncomment the last 2 lines to make the disentanglement experiment
+#experiment.test_singledim_disentanglement(config['logging_params']['save_dir'] + config['logging_params']['name'])
+#experiment.test_mutation_sig_disentanglment(save_dir=config['logging_params']['save_dir'] + config['logging_params']['name'],file_dir='../code/Data/signatures_data.csv')

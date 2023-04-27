@@ -1,13 +1,14 @@
 model_params:
   name: 'CategoricalVAE'
   in_channels: 1
-  latent_dim: 100
-  categorical_dim: 40
+  latent_dim: 10
+  categorical_dim: 33
   temperature: 0.5
   anneal_rate: 0.00003
   anneal_interval: 100
   alpha: 1.0
   init: uniform
+  activation: relu
 
 exp_params:
   dataset: TCGA
